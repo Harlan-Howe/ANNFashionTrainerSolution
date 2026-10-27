@@ -14,7 +14,7 @@ class ANN:
         # set up and randomize the weight matrices between layers
         self.weight_matrices: List[np.ndarray] = []
         for i in range(0, len(self.layer_sizes)-1):
-            self.weight_matrices.append(np.random.rand(layer_sizes[i]+1, layer_sizes[i+1]))
+            self.weight_matrices.append(np.random.rand(layer_sizes[i]+1, layer_sizes[i+1])*2-1)
 
         # set up the list of activation ids
         self.activation_functions = []
@@ -140,6 +140,11 @@ class ANN:
         #       you will be using the output (y-hat) from layer #0 and the #0 weight matrix to find the #1 input,
         #   and then the #1 output.
 
+        for i in range(len(self.layer_sizes)-1):
+            x_values = self.add_bias_node(self.y_hats_for_layers[i])
+            self.a_values_for_layers[i+1] = x_values.dot(self.weight_matrices[i])
+            self.y_hats_for_layers[i+1] = self.apply_activation_for_layer(layer_num=i+1, a_values=self.a_values_for_layers[i+1])
+
         # Now calculate the input into each subsequent layer and the output from that layer.
 
         # -----------------------------------------------------------
@@ -181,7 +186,13 @@ class ANN:
         #       4) Be sure to record each layer's errors into the errors list, so they wind up in order.
         #   There is no error for the input layer, just the hidden ones and the output layer. (So these errors are
         #   always and only found for the input to the next layer after a weight matrix.)
-
+        for i in range(len(self.layer_sizes)-1, 0, -1):
+            diff = errors[0].dot(self.weight_matrices[i-1].transpose())
+            stripped_diff = self.strip_bias_node(diff)
+            error_for_row = (stripped_diff *
+                             self.apply_derivative_of_activation_for_layer_from_output(layer_num=i,
+                                                                            y_hat_values=self.y_hats_for_layers[i-1]))
+            errors.insert(0,error_for_row)
         # ----------------------------------------
         return errors
 
@@ -202,7 +213,10 @@ class ANN:
         #  and that list of x values (size N+1) to generate a correction matrix, which is ((N+1) x M).
         #  3) Update the value of the weight matrix by multipling this correction by alpha and subtracting it from the
         #     weight matrix.
-
+        for i in range(len(self.weight_matrices)):
+            x_values = self.add_bias_node(self.y_hats_for_layers[i])
+            correction = np.outer(x_values,error_per_layer[i+1])
+            self.weight_matrices[i] -= alpha * correction
         # ----------------------------------
 
     def backpropagate(self, expected_output: np.ndarray, alpha: float = 0.02):
